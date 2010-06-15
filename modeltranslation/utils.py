@@ -63,8 +63,10 @@ class TranslationFieldDescriptor(object):
         lang = get_language()
         loc_field_name = build_localized_fieldname(self.name, lang)
         if hasattr(instance, loc_field_name):
-            return getattr(instance, loc_field_name) or \
-                   instance.__dict__[self.name]
+            # bmihelac: do not return default value
+            return getattr(instance, loc_field_name)
+            # return getattr(instance, loc_field_name) or \
+            #        instance.__dict__[self.name]
         return instance.__dict__[self.name]
 
 
