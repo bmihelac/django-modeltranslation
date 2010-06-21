@@ -1,3 +1,26 @@
+  ADDED: Configurable default value per field instance.
+         (thanks to bmihelac, resolves issue 28)
+  ADDED: Support for NullBooleanField.
+         (thanks to jaap, resolves issue 34)
+  ADDED: Setting to override the default language.
+         (thanks to jaap, resolves issue 2)
+  ADDED: Support for related fields - ForeignKey, ManyToManyField and
+         OneToOneField.
+         (resolves issue 15)
+
+  FIXED: Kept backwards compatibility with Django-1.0.
+         (thanks to jaap, resolves issue 34)
+  FIXED: Regression in south_field_triple caused by r55.
+         (thanks to jaap, resolves issue 29)
+  FIXED: TranslationField pre_save does not get the default language
+         correctly.
+         (thanks to jaap, resolves issue 31)
+
+v0.2
+====
+Date: 2010-06-15
+Packaged from revision 57.
+
   ADDED: Support for admin prepopulated_fields.
          (resolves issue 21)
   ADDED: Support for admin list_editable.
@@ -9,6 +32,9 @@
   ADDED: Support for admin inlines, common and generic.
          (resolves issue 12 and issue 18)
 
+  FIXED: Admin form validation errors with empty translated values and
+         unique=True.
+         (thanks to adamsc, resolves issue 26)
   FIXED: Mangling of untranslated prepopulated fields.
          (thanks to carl.j.meyer, resolves issue 25)
   FIXED: Verbose names of translated fields are not translated.
@@ -37,7 +63,5 @@
 
 v0.1
 ====
-
 Date: 2009-02-22
-
 Initial release packaged from revision 19.

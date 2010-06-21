@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from copy import deepcopy
+from copy import copy
 
 from django import forms, template
 from django.conf import settings
@@ -7,7 +7,7 @@ from django.contrib import admin
 from django.contrib.contenttypes import generic
 
 from modeltranslation.translator import translator
-from modeltranslation.utils import get_translation_fields
+from modeltranslation.utils import get_translation_fields, get_default_language
 # Ensure that models are registered for translation before TranslationAdmin
 # runs. The import is supposed to resolve a race condition between model import
 # and translation registration in production (see issue 19).
@@ -34,14 +34,14 @@ class TranslationAdminBase(object):
 
             # In case the original form field was required, make the default
             # translation field required instead.
-            if db_field.language == settings.LANGUAGES[0][0] and \
+            if db_field.language == get_default_language() and \
                orig_formfield.required:
                 orig_formfield.required = False
                 orig_formfield.blank = True
                 field.required = True
                 field.blank = False
 
-            field.widget = deepcopy(orig_formfield.widget)
+            field.widget = copy(orig_formfield.widget)
 
 
 class TranslationAdmin(admin.ModelAdmin, TranslationAdminBase):

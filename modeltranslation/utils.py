@@ -1,20 +1,24 @@
 # -*- coding: utf-8 -*-
 from django.db import models
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ImproperlyConfigured
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import get_language as _get_language
 from django.utils.functional import lazy
+
+
+def get_available_languages():
+    """Returns a list of the language codes in settings.LANGUAGES"""
+    return [l[0] for l in settings.LANGUAGES]
 
 
 def get_language():
     """
     Return an active language code that is guaranteed to be in
     settings.LANGUAGES (Django does not seem to guarantee this for us.)
-
     """
     lang = _get_language()
-    available_languages = [l[0] for l in settings.LANGUAGES]
+    available_languages = get_available_languages()
     if lang not in available_languages and '-' in lang:
         lang = lang.split('-')[0]
     if lang in available_languages:
@@ -22,9 +26,27 @@ def get_language():
     return available_languages[0]
 
 
+def get_default_language():
+    """
+    Returns the language to use as the default language. This is either
+    the value of settings.DEFAULT_LANGUAGE (if it's in the list of
+    settings.LANGUAGES) or the first item in settings.LANGUAGES.
+    """
+    available_languages = get_available_languages()
+    default_language = getattr(settings,
+                               'MODELTRANSLATION_DEFAULT_LANGUAGE', None)
+    if default_language and default_language not in available_languages:
+        raise ImproperlyConfigured('MODELTRANSLATION_DEFAULT_LANGUAGE not '
+                                   'in LANGUAGES setting.')
+    if not default_language:
+        default_language = available_languages[0]
+    return default_language
+
+
 def get_translation_fields(field):
     """Returns a list of localized fieldnames for a given field."""
-    return [build_localized_fieldname(field, l[0]) for l in settings.LANGUAGES]
+    return [build_localized_fieldname(field, l) for l in\
+            get_available_languages()]
 
 
 def build_localized_fieldname(field_name, lang):
@@ -38,13 +60,14 @@ build_localized_verbose_name = lazy(_build_localized_verbose_name, unicode)
 
 class TranslationFieldDescriptor(object):
     """A descriptor used for the original translated field."""
-    def __init__(self, name, initial_val=""):
+    def __init__(self, name, initial_val="", fallback_value=None):
         """
         The ``name`` is the name of the field (which is not available in the
         descriptor by default - this is Python behaviour).
         """
         self.name = name
         self.val = initial_val
+        self.fallback_value = fallback_value
 
     def __set__(self, instance, value):
         lang = get_language()
@@ -63,69 +86,14 @@ class TranslationFieldDescriptor(object):
         lang = get_language()
         loc_field_name = build_localized_fieldname(self.name, lang)
         if hasattr(instance, loc_field_name):
-            # bmihelac: do not return default value
-            return getattr(instance, loc_field_name)
-            # return getattr(instance, loc_field_name) or \
-            #        instance.__dict__[self.name]
-        return instance.__dict__[self.name]
+            return getattr(instance, loc_field_name) or\
+                   (instance.__dict__[self.name] if\
+                    self.fallback_value is None else self.fallback_value)
 
-
-#def create_model(name, fields=None, app_label='', module='', options=None,
-                 #admin_opts=None):
-    #"""
-    #Create specified model.
-    #This is taken from http://code.djangoproject.com/wiki/DynamicModels
-    #"""
-    #class Meta:
-        ## Using type('Meta', ...) gives a dictproxy error during model
-        ## creation
-        #pass
-
-    #if app_label:
-        ## app_label must be set using the Meta inner class
-        #setattr(Meta, 'app_label', app_label)
-
-    ## Update Meta with any options that were provided
-    #if options is not None:
-        #for key, value in options.iteritems():
-            #setattr(Meta, key, value)
-
-    ## Set up a dictionary to simulate declarations within a class
-    #attrs = {'__module__': module, 'Meta': Meta}
-
-    ## Add in any fields that were provided
-    #if fields:
-        #attrs.update(fields)
-
-    ## Create the class, which automatically triggers ModelBase processing
-    #model = type(name, (models.Model,), attrs)
-
-    ## Create an Admin class if admin options were provided
-    #if admin_opts is not None:
-        #class Admin(admin.ModelAdmin):
-            #pass
-        #for key, value in admin_opts:
-            #setattr(Admin, key, value)
-        #admin.site.register(model, Admin)
-
-    #return model
-
-
-def copy_field(field):
-    """
-    Instantiate a new field, with all of the values from the old one, except
-    the to and to_field in the case of related fields.
-
-    This taken from http://www.djangosnippets.org/snippets/442/
-    """
-    base_kw = dict([(n, getattr(field, n, '_null')) for n in \
-              models.fields.Field.__init__.im_func.func_code.co_varnames])
-    if isinstance(field, models.fields.related.RelatedField):
-        rel = base_kw.get('rel')
-        rel_kw = dict([(n, getattr(rel, n, '_null')) for n in \
-                 rel.__init__.im_func.func_code.co_varnames])
-        if isinstance(field, models.fields.related.ForeignKey):
-            base_kw['to_field'] = rel_kw.pop('field_name')
-        base_kw.update(rel_kw)
-    base_kw.pop('self')
-    return field.__class__(**base_kw)
+        #return instance.__dict__[self.name]
+        # FIXME: KeyError raised for ForeignKeyTanslationField
+        #        in admin list view
+        try:
+            return instance.__dict__[self.name]
+        except KeyError:
+            return None
